@@ -1,5 +1,6 @@
-import { lstatSync, readdirSync, statSync, existsSync, mkdirSync } from 'fs';
+import { lstatSync, readdirSync, statSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
+import rimraf from 'rimraf';
 
 const getGalleryObject = (sourceDir) =>
   readdirSync(sourceDir)
@@ -23,7 +24,7 @@ const putImagePropertiesIfImageExistsInDir = (sourceDir, name) => {
 
   if (isImageInDir(dirContent)) {
     const path = dirContent[0];
-    const imageName = getFileNameWithouExtenstion(path);
+    const imageName = getFileNameWithoutExtension(path);
     const fullPath = `${name}/${path}`;
     const imageStats = statSync(resolve(`db/gallery/${fullPath}`), (err) => {
       console.log(err);
@@ -37,15 +38,16 @@ const isImageInDir = (dirContent) => {
   return dirContent.length > 0;
 };
 
-const getFileNameWithoutExtenstion = (fileName) =>
+const getFileNameWithoutExtension = (fileName) =>
+  fileName &&
   fileName
     .split('.')
     .slice(0, -1)
     .join('.');
 
-const createDirectoryIfOk = (name) => {
+const createDirIfOk = (name) => {
   const fullPath = `db/gallery/${name}`;
-
+  console.log(fullPath);
   if (!existsSync(fullPath)) {
     mkdirSync(fullPath);
 
@@ -53,9 +55,7 @@ const createDirectoryIfOk = (name) => {
   }
 };
 
-const doesDirExist = (path) => {
-  const fullPath = `db/gallery/${path}`;
-
+const doesFileOrDirExist = (fullPath) => {
   return existsSync(fullPath);
 };
 
@@ -72,7 +72,7 @@ const getGalleryImgObj = (galleryName) => {
 
 const createImgArray = (dirContent, galleryName) => {
   return dirContent.map((imageName) => {
-    const name = getFileNameWithoutExtenstion(imageName);
+    const name = getFileNameWithoutExtension(imageName);
     const fullPath = `${galleryName}/${imageName}`;
     const imageStats = statSync(resolve(`db/gallery/${fullPath}`), (err) => {
       console.log(err);
@@ -87,10 +87,48 @@ const createImgArray = (dirContent, galleryName) => {
   });
 };
 
+const deleteGallery = (galleryName) => {
+  const fullPath = `db/gallery/${galleryName}`;
+  rimraf(fullPath, () => {});
+  return true;
+};
+
+const createImgUploadSuccessObj = (fullPath, fileName) => {
+  const imageStats = statSync(resolve(fullPath), (err) => {
+    console.log(err);
+  });
+
+  const finalObj = {
+    uploaded: {
+      path: fileName,
+      fullPath: getImagePathFromFullPath(fullPath),
+      name: getFileNameWithoutExtension(fileName),
+      modified: imageStats.mtime,
+    },
+  };
+  return finalObj;
+};
+
+const getImagePathFromFullPath = (fullPath) => {
+  const splitPath = fullPath.split('/');
+  const lastFolderAndImg = [splitPath[splitPath.length - 2], splitPath[splitPath.length - 1]].join(
+    '/',
+  );
+
+  return lastFolderAndImg;
+};
+
+const getImageFromPath = (fullPath) => {
+  return readFileSync(fullPath);
+};
+
 export default {
   getGalleryObject,
   isImageInDir,
-  createDirectoryIfOk,
-  doesDirExist,
+  createDirIfOk,
+  doesFileOrDirExist,
   getGalleryImgObj,
+  deleteGallery,
+  createImgUploadSuccessObj,
+  getImageFromPath,
 };

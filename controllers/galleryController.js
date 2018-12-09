@@ -1,4 +1,3 @@
-import db from '../db/db';
 import fileSystem from '../utils/fileSystemUtils';
 
 const getGalleries = (req, res) => {
@@ -10,7 +9,8 @@ const getGalleries = (req, res) => {
 };
 
 const createNewGallery = (req, res) => {
-  if (!req.body.name) {
+  const galleryName = req.body.name;
+  if (!galleryName || galleryName.includes('/')) {
     return res.status(400).send({
       code: 400,
       payload: {
@@ -23,17 +23,19 @@ const createNewGallery = (req, res) => {
     });
   }
 
-  const result = fileSystem.createDirectoryIfOk(req.body.name);
+  const result = fileSystem.createDirIfOk(req.body.name);
   if (result) {
     return res.status(201).send({ name: result, path: encodeURIComponent(result.trim()) });
   }
 
-  return res.status(409).send({ message: `dir with name ${name} already exists` });
+  return res.status(409).send({ message: `dir with name ${galleryName} already exists` });
 };
 
 const getGalleryDetails = (req, res) => {
   const galleryName = req.params.path;
-  if (!fileSystem.doesDirExist(galleryName)) {
+  const fullPath = `db/gallery/${galleryName}`;
+
+  if (!fileSystem.doesFileOrDirExist(fullPath)) {
     return res.status(404).send({
       message: `gallery with path ${galleryName} does not exist`,
     });
@@ -47,42 +49,49 @@ const getGalleryDetails = (req, res) => {
 };
 
 const deleteGallery = (req, res) => {
-  const path = parseInt(req.params.path, 10);
-
-  db.map((gallery, index) => {
-    if (gallery.path === path) {
-      db.splice(index, 1);
-      return res.status(200).send({
-        success: 'true',
-        message: 'gallery deleted successfuly',
-      });
-    }
-  });
-
-  return res.status(404).send({
-    success: 'false',
-    message: `gallery with path id${path} not found`,
-  });
-};
-
-const uploadImage = (req, res) => {
-  if (!req.body.path) {
-    return res.status(400).send({
-      success: 'false',
-      message: 'path is required',
-    });
-  } else if (!req.get('Content-Type')) {
-    return res.status(400).send({
-      success: 'false',
-      message: 'content-type is required',
+  const galleryName = req.params.path;
+  const fullPath = `db/gallery/${galleryName}`;
+  const imageName = req.param(0);
+  if (
+    !fileSystem.doesFileOrDirExist(fullPath) ||
+    !fileSystem.doesFileOrDirExist(`db/gallery/${galleryName}/${imageName}`)
+  ) {
+    return res.status(404).send({
+      message: `gallery/image with path ${galleryName} does not exist`,
     });
   }
 
-  return res.status(201).send({
-    success: 'true',
-    message: 'gallery added successfully',
-    gallery,
-  });
+  try {
+    const pathToImage = imageName ? `${galleryName}/${imageName}` : galleryName;
+    fileSystem.deleteGallery(pathToImage);
+    return res.status(200).send({
+      message: `gallery/image successfully deleted`,
+    });
+  } catch (err) {
+    return res.status(500).send({});
+  }
+};
+
+const uploadImage = (req, res) => {
+  const galleryName = req.params.path;
+  const fullPath = `db/gallery/${galleryName}`;
+
+  if (!req.file) {
+    return res.status(400).send({
+      message: 'no file was chosen',
+    });
+  } else if (!req.get('Content-Type')) {
+    return res.status(400).send({
+      message: 'content-type is required',
+    });
+  } else if (!fileSystem.doesFileOrDirExist(fullPath)) {
+    return res.status(404).send({
+      message: `gallery with path ${galleryName} does not exist`,
+    });
+  }
+
+  const succesObj = fileSystem.createImgUploadSuccessObj(req.file.path, req.file.originalname);
+  return res.status(201).send(succesObj);
 };
 
 export default { getGalleries, createNewGallery, getGalleryDetails, deleteGallery, uploadImage };
