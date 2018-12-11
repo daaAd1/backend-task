@@ -122,6 +122,30 @@ const getImageFromPath = (fullPath) => {
   return readFileSync(fullPath);
 };
 
+const createNewFileName = (id, name) => {
+  const nameWithoutExtension = getFileNameWithoutExtension(name);
+  const extension = getFileExtension(name);
+
+  return `${nameWithoutExtension}-${id}.${extension}`;
+};
+
+const getFileExtension = (name) => {
+  const splitFileName = name.split('.');
+
+  return splitFileName[splitFileName.length - 1];
+};
+
+const createNewFileNamePath = (path, name) => {
+  const splitPath = path.split('/');
+  splitPath.splice(-1, 1);
+
+  return [splitPath.join('/'), name].join('/');
+};
+
+const renameFile = (originalPath, newPath) => {
+  return renameSync(originalPath, newPath);
+};
+
 export default {
   getGalleryObject,
   isImageInDir,
@@ -131,4 +155,7 @@ export default {
   deleteGallery,
   createImgUploadSuccessObj,
   getImageFromPath,
+  renameFile,
+  createNewFileName,
+  createNewFileNamePath,
 };

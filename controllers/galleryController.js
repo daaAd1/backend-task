@@ -1,3 +1,4 @@
+import graph from 'fbgraph';
 import fileSystem from '../utils/fileSystemUtils';
 
 const getGalleries = (req, res) => {
@@ -72,9 +73,10 @@ const deleteGallery = (req, res) => {
   }
 };
 
-const uploadImage = (req, res) => {
+const uploadImage = async (req, res) => {
   const galleryName = req.params.path;
   const fullPath = `db/gallery/${galleryName}`;
+  const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
 
   if (!req.file) {
     return res.status(400).send({
@@ -90,7 +92,47 @@ const uploadImage = (req, res) => {
     });
   }
 
-  const succesObj = fileSystem.createImgUploadSuccessObj(req.file.path, req.file.originalname);
+  if (token) {
+    graph.setAccessToken(token);
+  } else {
+    return res.status(401).send({
+      message: 'not authorized',
+    });
+  }
+
+  let id = 0;
+
+  const options = {
+    timeout: 3000,
+    pool: { maxSockets: Infinity },
+    headers: { connection: 'keep-alive' },
+  };
+
+  async function start() {
+    let promise = await new Promise((resolve, reject) => {
+      graph.setOptions(options).get('me', (err, res) => {
+        id = res.id;
+        resolve();
+      });
+    }).catch((err) => {
+      throw err;
+    });
+
+    return promise;
+  }
+
+  await start()
+    .then(() => {})
+    .catch(() => {});
+
+  const { originalname, path } = req.file;
+
+  const fileNameWithId = fileSystem.createNewFileName(id, originalname);
+  const fileNameWithIdPath = fileSystem.createNewFileNamePath(path, fileNameWithId);
+
+  fileSystem.renameFile(path, fileNameWithIdPath);
+
+  const succesObj = fileSystem.createImgUploadSuccessObj(fileNameWithIdPath, fileNameWithId);
   return res.status(201).send(succesObj);
 };
 
