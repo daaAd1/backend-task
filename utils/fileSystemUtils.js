@@ -47,7 +47,7 @@ const getFileNameWithoutExtension = (fileName) =>
 
 const createDirIfOk = (name) => {
   const fullPath = `db/gallery/${name}`;
-  console.log(fullPath);
+
   if (!existsSync(fullPath)) {
     mkdirSync(fullPath);
 
@@ -82,7 +82,7 @@ const createImgArray = (dirContent, galleryName) => {
       path: encodeURIComponent(imageName && imageName.trim()),
       name,
       fullPath,
-      modified: imageStats.mtime,
+      modified: imageStats.mtime.toString(),
     };
   });
 };
@@ -103,7 +103,7 @@ const createImgUploadSuccessObj = (fullPath, fileName) => {
       path: fileName,
       fullPath: getImagePathFromFullPath(fullPath),
       name: getFileNameWithoutExtension(fileName),
-      modified: imageStats.mtime,
+      modified: imageStats.mtime.toString(),
     },
   };
   return finalObj;

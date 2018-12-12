@@ -1,11 +1,20 @@
 import graph from 'fbgraph';
+import jsonschema from 'jsonschema';
+const { Validator } = jsonschema;
+import GetGallerySchema from '../schemas/GetGallerySchema';
+import PostGallerySchema from '../schemas/PostGallerySchema';
+import GetGalleryDetailSchema from '../schemas/GetGalleryDetailSchema';
 import fileSystem from '../utils/fileSystemUtils';
 
 const getGalleries = (req, res) => {
   const source = 'db/gallery';
 
+  const galleries = fileSystem.getGalleryObject(source);
+  const validator = new Validator();
+  console.log(validator.validate(galleries, GetGallerySchema));
+
   res.status(200).send({
-    galleries: fileSystem.getGalleryObject(source),
+    galleries,
   });
 };
 
@@ -20,13 +29,16 @@ const createNewGallery = (req, res) => {
         example: null,
       },
       name: 'INVALID_SCHEMA',
-      description: "Bad JSON object: u'name' is a required property",
+      description: "Bad JSON object: u'name' is a required property or name includes /",
     });
   }
 
   const result = fileSystem.createDirIfOk(req.body.name);
   if (result) {
-    return res.status(201).send({ name: result, path: encodeURIComponent(result.trim()) });
+    const succesObj = { name: result, path: encodeURIComponent(result.trim()) };
+    const validator = new Validator();
+    console.log(validator.validate(succesObj, PostGallerySchema));
+    return res.status(201).send(succesObj);
   }
 
   return res.status(409).send({ message: `dir with name ${galleryName} already exists` });
@@ -43,10 +55,13 @@ const getGalleryDetails = (req, res) => {
   }
 
   const imagesObj = fileSystem.getGalleryImgObj(galleryName);
-  return res.status(200).send({
+  const succesObj = {
     gallery: { name: galleryName, path: encodeURIComponent(galleryName.trim()) },
     images: imagesObj,
-  });
+  };
+  const validator = new Validator();
+  console.log(validator.validate(succesObj, GetGalleryDetailSchema));
+  return res.status(200).send(succesObj);
 };
 
 const deleteGallery = (req, res) => {
