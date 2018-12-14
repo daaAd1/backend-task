@@ -5,11 +5,19 @@ import GetGallerySchema from '../schemas/GetGallerySchema';
 import PostGallerySchema from '../schemas/PostGallerySchema';
 import GetGalleryDetailSchema from '../schemas/GetGalleryDetailSchema';
 import fileSystem from '../utils/fileSystemUtils';
+import facebookUtils from '../utils/facebookUtils';
+import { CustomError } from '../utils/CustomError';
 
-const getGalleries = (req, res) => {
+const getGalleries = (req, res, next) => {
   const source = 'db/gallery';
 
-  const galleries = fileSystem.getGalleryObject(source);
+  let galleries;
+  try {
+    galleries = fileSystem.getGalleryObject(source);
+  } catch (err) {
+    next(err);
+  }
+
   const validator = new Validator();
   console.log(validator.validate(galleries, GetGallerySchema));
 
@@ -18,7 +26,7 @@ const getGalleries = (req, res) => {
   });
 };
 
-const createNewGallery = (req, res) => {
+const createNewGallery = (req, res, next) => {
   const galleryName = req.body.name;
   if (!galleryName || galleryName.includes('/')) {
     return res.status(400).send({
@@ -44,7 +52,7 @@ const createNewGallery = (req, res) => {
   return res.status(409).send({ message: `dir with name ${galleryName} already exists` });
 };
 
-const getGalleryDetails = (req, res) => {
+const getGalleryDetails = (req, res, next) => {
   const galleryName = req.params.path;
   const fullPath = `db/gallery/${galleryName}`;
 
@@ -54,7 +62,13 @@ const getGalleryDetails = (req, res) => {
     });
   }
 
-  const imagesObj = fileSystem.getGalleryImgObj(galleryName);
+  let imagesObj;
+  try {
+    imagesObj = fileSystem.getGalleryImgObj(galleryName);
+  } catch (err) {
+    next(err);
+  }
+
   const succesObj = {
     gallery: { name: galleryName, path: encodeURIComponent(galleryName.trim()) },
     images: imagesObj,
@@ -64,7 +78,7 @@ const getGalleryDetails = (req, res) => {
   return res.status(200).send(succesObj);
 };
 
-const deleteGallery = (req, res) => {
+const deleteGallery = (req, res, next) => {
   const galleryName = req.params.path;
   const fullPath = `db/gallery/${galleryName}`;
   const imageName = req.param(0);
@@ -84,15 +98,15 @@ const deleteGallery = (req, res) => {
       message: `gallery/image successfully deleted`,
     });
   } catch (err) {
-    return res.status(500).send({});
+    next(err);
   }
 };
 
-const uploadImage = async (req, res) => {
+const uploadImage = async (req, res, next) => {
   const galleryName = req.params.path;
   const fullPath = `db/gallery/${galleryName}`;
   const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
-
+  console.log(token);
   if (!req.file) {
     return res.status(400).send({
       message: 'no file was chosen',
@@ -107,39 +121,13 @@ const uploadImage = async (req, res) => {
     });
   }
 
-  if (token) {
-    graph.setAccessToken(token);
-  } else {
+  const id = await facebookUtils.getUserId(token);
+
+  if (!id) {
     return res.status(401).send({
-      message: 'not authorized',
+      message: 'token not valid',
     });
   }
-
-  let id = 0;
-
-  const options = {
-    timeout: 3000,
-    pool: { maxSockets: Infinity },
-    headers: { connection: 'keep-alive' },
-  };
-
-  async function start() {
-    let promise = await new Promise((resolve, reject) => {
-      graph.setOptions(options).get('me', (err, res) => {
-        id = res.id;
-        resolve();
-      });
-    }).catch((err) => {
-      throw err;
-    });
-
-    return promise;
-  }
-
-  await start()
-    .then(() => {})
-    .catch(() => {});
-
   const { originalname, path } = req.file;
 
   const fileNameWithId = fileSystem.createNewFileName(id, originalname);

@@ -1,18 +1,21 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import router from './routes/index';
-import multer from 'multer';
+import CustomError from './utils/CustomError';
+import authMiddleware from './middlewares/authMiddleware';
 
-const upload = multer({ dest: './db/' });
 const app = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(authMiddleware);
 app.use(router);
-// app.post('/gallery/:path', upload.single('image'), function(req, res) {
-//   console.log(req.headers);
-//   console.log(req.file, req.files);
-// });
+
+app.get('/', function(req, res) {
+  throw new CustomError('ERRRRRRORRRRR');
+});
+
+//MIDDLEWARE NA AUTH
 
 const PORT = 5000;
 

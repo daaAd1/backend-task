@@ -1,4 +1,12 @@
-import { lstatSync, readdirSync, statSync, existsSync, mkdirSync, readFileSync } from 'fs';
+import {
+  lstatSync,
+  readdirSync,
+  statSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+} from 'fs';
 import { join, resolve } from 'path';
 import rimraf from 'rimraf';
 
