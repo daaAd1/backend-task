@@ -2,6 +2,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import router from './routes/index';
 import { CustomError } from './utils/CustomError';
+import fileSystem from './utils/fileSystemUtils';
 import authMiddleware from './middlewares/authMiddleware';
 
 const app = express();
@@ -14,6 +15,12 @@ router.use((req, res, next) => {
   if (!req.route) {
     throw new CustomError(404, 'NOT_FOUND', 'Route is not defined');
   }
+});
+
+// checks if db and db/gallery folders exist before handling routes
+app.use((req, res, next) => {
+  fileSystem.checkIfGalleryFolderExistsAndCreateItIfNeeded();
+  next();
 });
 
 app.use(authMiddleware);

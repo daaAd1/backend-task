@@ -11,6 +11,16 @@ import {
 import { join, resolve } from 'path';
 import rimraf from 'rimraf';
 
+const checkIfGalleryFolderExistsAndCreateItIfNeeded = () => {
+  if (!doesFileOrDirExist('db')) {
+    mkdirSync('db');
+  }
+
+  if (!doesFileOrDirExist('db/gallery')) {
+    mkdirSync('db/gallery');
+  }
+};
+
 const getGalleryObject = (sourceDir) =>
   readdirSync(sourceDir)
     .filter((name) => isDirectory(join(sourceDir, name)))
@@ -174,4 +184,5 @@ export default {
   createNewFileName,
   createNewFileNamePath,
   deleteMulterCreatedFile,
+  checkIfGalleryFolderExistsAndCreateItIfNeeded,
 };
