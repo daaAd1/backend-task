@@ -15,7 +15,6 @@
     "body-parser": "^1.18.3",
     "express": "^4.16.4",
     "fbgraph": "^1.4.4",
-    "joi": "https://github.com/hapijs/joi",
     "jsonschema": "^1.2.4",
     "multer": "^1.4.1",
     "nodemon": "^1.18.7",

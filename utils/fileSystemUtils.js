@@ -97,8 +97,8 @@ const createImgArray = (dirContent, galleryName) => {
 
 const deleteGallery = (galleryName) => {
   const fullPath = `db/gallery/${galleryName}`;
+
   rimraf(fullPath, () => {});
-  return true;
 };
 
 const createImgUploadSuccessObj = (fullPath, fileName) => {

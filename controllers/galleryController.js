@@ -1,6 +1,4 @@
-import graph from 'fbgraph';
 import jsonschema from 'jsonschema';
-const { Validator } = jsonschema;
 import GetGallerySchema from '../schemas/GetGallerySchema';
 import PostGallerySchema from '../schemas/PostGallerySchema';
 import GetGalleryDetailSchema from '../schemas/GetGalleryDetailSchema';
@@ -8,94 +6,100 @@ import fileSystem from '../utils/fileSystemUtils';
 import facebookUtils from '../utils/facebookUtils';
 import { CustomError } from '../utils/CustomError';
 
-const getGalleries = (req, res, next) => {
-  const source = 'db/gallery';
+const { Validator } = jsonschema;
 
-  let galleries;
+const getGalleries = (req, res, next) => {
   try {
-    galleries = fileSystem.getGalleryObject(source);
+    const source = 'db/gallery';
+
+    const galleries = fileSystem.getGalleryObject(source);
+    const validator = new Validator();
+    console.log(validator.validate(galleries, GetGallerySchema));
+
+    return res.status(200).send({
+      galleries,
+    });
   } catch (err) {
     next(err);
   }
-
-  const validator = new Validator();
-  console.log(validator.validate(galleries, GetGallerySchema));
-
-  res.status(200).send({
-    galleries,
-  });
 };
 
 const createNewGallery = (req, res, next) => {
-  const galleryName = req.body.name;
-  if (!galleryName || galleryName.includes('/')) {
-    return res.status(400).send({
-      code: 400,
-      payload: {
-        paths: ['name'],
-        validator: 'required',
-        example: null,
-      },
-      name: 'INVALID_SCHEMA',
-      description: "Bad JSON object: u'name' is a required property or name includes /",
-    });
-  }
-
-  const result = fileSystem.createDirIfOk(req.body.name);
-  if (result) {
-    const succesObj = { name: result, path: encodeURIComponent(result.trim()) };
-    const validator = new Validator();
-    console.log(validator.validate(succesObj, PostGallerySchema));
-    return res.status(201).send(succesObj);
-  }
-
-  return res.status(409).send({ message: `dir with name ${galleryName} already exists` });
-};
-
-const getGalleryDetails = (req, res, next) => {
-  const galleryName = req.params.path;
-  const fullPath = `db/gallery/${galleryName}`;
-
-  if (!fileSystem.doesFileOrDirExist(fullPath)) {
-    return res.status(404).send({
-      message: `gallery with path ${galleryName} does not exist`,
-    });
-  }
-
-  let imagesObj;
   try {
-    imagesObj = fileSystem.getGalleryImgObj(galleryName);
+    const galleryName = req.body.name;
+
+    const validator = new Validator();
+    console.log(validator.validate(req.body, PostGallerySchema));
+
+    if (!galleryName || galleryName.includes('/')) {
+      throw new CustomError(
+        400,
+        'INVALID_SCHEMA',
+        "Bad JSON object: u'name' is a required property or name includes /",
+        {
+          paths: ['name'],
+          validator: 'required',
+          example: null,
+        },
+      );
+    }
+
+    const result = fileSystem.createDirIfOk(req.body.name);
+    if (!result) {
+      throw new CustomError(409, 'ALREADY_EXISTS', 'Gallery already exists');
+    }
+
+    const successObj = { name: result, path: encodeURIComponent(result.trim()) };
+
+    return res.status(201).send(successObj);
   } catch (err) {
     next(err);
   }
+};
 
-  const succesObj = {
-    gallery: { name: galleryName, path: encodeURIComponent(galleryName.trim()) },
-    images: imagesObj,
-  };
-  const validator = new Validator();
-  console.log(validator.validate(succesObj, GetGalleryDetailSchema));
-  return res.status(200).send(succesObj);
+const getGalleryDetails = (req, res, next) => {
+  try {
+    const galleryName = req.params.path;
+    const fullPath = `db/gallery/${galleryName}`;
+
+    if (!fileSystem.doesFileOrDirExist(fullPath)) {
+      throw new CustomError(404, 'NOT_FOUND', 'Gallery does not exist');
+    }
+
+    const imagesObj = fileSystem.getGalleryImgObj(galleryName);
+    const succesObj = {
+      gallery: { name: galleryName, path: encodeURIComponent(galleryName.trim()) },
+      images: imagesObj,
+    };
+    const validator = new Validator();
+    console.log(validator.validate(succesObj, GetGalleryDetailSchema));
+
+    return res.status(200).send(succesObj);
+  } catch (err) {
+    next(err);
+  }
 };
 
 const deleteGallery = (req, res, next) => {
-  const galleryName = req.params.path;
-  const fullPath = `db/gallery/${galleryName}`;
-  const imageName = req.param(0);
-  if (
-    !fileSystem.doesFileOrDirExist(fullPath) ||
-    !fileSystem.doesFileOrDirExist(`db/gallery/${galleryName}/${imageName}`)
-  ) {
-    return res.status(404).send({
-      message: `gallery/image with path ${galleryName} does not exist`,
-    });
-  }
-
   try {
+    const galleryName = req.params.path;
+    const fullPath = `db/gallery/${galleryName}`;
+    const imageName = req.param(0);
+
+    if (
+      !fileSystem.doesFileOrDirExist(fullPath) ||
+      !fileSystem.doesFileOrDirExist(`db/gallery/${galleryName}/${imageName}`)
+    ) {
+      throw new CustomError(404, 'NOT_FOUND', 'Gallery/image does not exist');
+    }
+
     const pathToImage = imageName ? `${galleryName}/${imageName}` : galleryName;
     fileSystem.deleteGallery(pathToImage);
+
     return res.status(200).send({
-      message: `gallery/image successfully deleted`,
+      statusCode: 200,
+      name: 'success',
+      description: `Gallery/image successfully deleted`,
     });
   } catch (err) {
     next(err);
@@ -103,40 +107,37 @@ const deleteGallery = (req, res, next) => {
 };
 
 const uploadImage = async (req, res, next) => {
-  const galleryName = req.params.path;
-  const fullPath = `db/gallery/${galleryName}`;
-  const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
-  console.log(token);
-  if (!req.file) {
-    return res.status(400).send({
-      message: 'no file was chosen',
-    });
-  } else if (!req.get('Content-Type')) {
-    return res.status(400).send({
-      message: 'content-type is required',
-    });
-  } else if (!fileSystem.doesFileOrDirExist(fullPath)) {
-    return res.status(404).send({
-      message: `gallery with path ${galleryName} does not exist`,
-    });
+  try {
+    const galleryName = req.params.path;
+    const fullPath = `db/gallery/${galleryName}`;
+    const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
+
+    if (!req.file) {
+      throw new CustomError(400, 'BAD_REQUEST', 'No image to upload');
+    } else if (!req.get('Content-Type')) {
+      throw new CustomError(400, 'BAD_REQUEST', 'Content type is required');
+    } else if (!fileSystem.doesFileOrDirExist(fullPath)) {
+      throw new CustomError(404, 'NOT_FOUND', 'Gallery does not exist');
+    }
+
+    const id = await facebookUtils.getUserId(token);
+
+    if (!id) {
+      throw new CustomError(401, 'UNAUTHORIZED', 'Token is not valid');
+    }
+    const { originalname, path } = req.file;
+
+    const fileNameWithId = fileSystem.createNewFileName(id, originalname);
+    const fileNameWithIdPath = fileSystem.createNewFileNamePath(path, fileNameWithId);
+
+    fileSystem.renameFile(path, fileNameWithIdPath);
+
+    const succesObj = fileSystem.createImgUploadSuccessObj(fileNameWithIdPath, fileNameWithId);
+
+    return res.status(201).send(succesObj);
+  } catch (err) {
+    next(err);
   }
-
-  const id = await facebookUtils.getUserId(token);
-
-  if (!id) {
-    return res.status(401).send({
-      message: 'token not valid',
-    });
-  }
-  const { originalname, path } = req.file;
-
-  const fileNameWithId = fileSystem.createNewFileName(id, originalname);
-  const fileNameWithIdPath = fileSystem.createNewFileNamePath(path, fileNameWithId);
-
-  fileSystem.renameFile(path, fileNameWithIdPath);
-
-  const succesObj = fileSystem.createImgUploadSuccessObj(fileNameWithIdPath, fileNameWithId);
-  return res.status(201).send(succesObj);
 };
 
 export default { getGalleries, createNewGallery, getGalleryDetails, deleteGallery, uploadImage };
