@@ -111,12 +111,14 @@ const uploadImage = async (req, res, next) => {
     const galleryName = req.params.path;
     const fullPath = `db/gallery/${galleryName}`;
     const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
+    const { originalname, path } = req.file;
 
     if (!req.file) {
       throw new CustomError(400, 'BAD_REQUEST', 'No image to upload');
     } else if (!req.get('Content-Type')) {
       throw new CustomError(400, 'BAD_REQUEST', 'Content type is required');
     } else if (!fileSystem.doesFileOrDirExist(fullPath)) {
+      fileSystem.deleteMulterCreatedFile(`db/${originalname}`);
       throw new CustomError(404, 'NOT_FOUND', 'Gallery does not exist');
     }
 
@@ -125,7 +127,6 @@ const uploadImage = async (req, res, next) => {
     if (!id) {
       throw new CustomError(401, 'UNAUTHORIZED', 'Token is not valid');
     }
-    const { originalname, path } = req.file;
 
     const fileNameWithId = fileSystem.createNewFileName(id, originalname);
     const fileNameWithIdPath = fileSystem.createNewFileNamePath(path, fileNameWithId);

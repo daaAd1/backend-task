@@ -1,29 +1,30 @@
 import graph from 'fbgraph';
+import { CustomError } from '../utils/CustomError';
 
 const authMiddleware = (req, res, next) => {
-  const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
+  try {
+    const token = req.get('Authorization') && req.get('Authorization').split(' ')[1];
 
-  // check auth only on post image request
-  const isCorrectRoute = checkIfCorrectRoute(req.url) && req.method === 'POST';
+    // check auth only on post image request
+    const isCorrectRoute = checkIfCorrectRoute(req.url) && req.method === 'POST';
 
-  if (!isCorrectRoute) {
-    return next();
-  }
+    if (!isCorrectRoute) {
+      return next();
+    }
 
-  if (token) {
+    if (!token) {
+      throw new CustomError(401, 'UNAUTHORIZED', 'No token found');
+    }
+
     try {
       graph.setAccessToken(token);
-      return next();
     } catch (err) {
-      return res.status(401).send({
-        message: 'not authorized',
-      });
+      throw new CustomError(401, 'UNAUTHORIZED', 'Not authorized');
     }
+    return next();
+  } catch (err) {
+    next(err);
   }
-
-  return res.status(401).send({
-    message: 'not authorized',
-  });
 };
 
 const checkIfCorrectRoute = (url) => {

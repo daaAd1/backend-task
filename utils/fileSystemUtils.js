@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  unlinkSync,
 } from 'fs';
 import { join, resolve } from 'path';
 import rimraf from 'rimraf';
@@ -154,6 +155,12 @@ const renameFile = (originalPath, newPath) => {
   return renameSync(originalPath, newPath);
 };
 
+const deleteMulterCreatedFile = (fullPath) => {
+  if (doesFileOrDirExist(fullPath)) {
+    unlinkSync(fullPath);
+  }
+};
+
 export default {
   getGalleryObject,
   isImageInDir,
@@ -166,4 +173,5 @@ export default {
   renameFile,
   createNewFileName,
   createNewFileNamePath,
+  deleteMulterCreatedFile,
 };
